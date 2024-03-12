@@ -1,0 +1,11 @@
+function main() : int a, int b, int c, int d, int e, int f, int g, int h, int i, int j -> int {
+  i := 3;
+  j := 1;
+  h := i + j;
+  a := inputi();
+  b := a / h;
+  printi(b);
+  b := b + 1;
+  printi(b);
+  return 0; 
+}
