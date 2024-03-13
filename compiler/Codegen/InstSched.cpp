@@ -1,4 +1,5 @@
 #include <Codegen/InstSched.h>
+#include <Logging.h>
 
 #include <map>
 #include <queue>
@@ -33,7 +34,8 @@ static void UpdateDefs(
   };
 
   switch(Inst->GetOpcode()) {
-    // TODO: Add all opcodes
+    // XXX: New opcodes need to be added here
+    // XXX: Effects of instructions need to be modeled properly
     case MachineInstruction::Opcode::Mov: 
     case MachineInstruction::Opcode::CMov: {
       UpdateDefByOperand(Inst->GetOperand(1), Node);
@@ -69,10 +71,12 @@ static void UpdateDefs(
     }
 
     case MachineInstruction::Opcode::Push: {
+      UpdateDefByOperand(MachineOperand::CreateRegister(RSP), Node);
       break;
     }
     case MachineInstruction::Opcode::Pop: {
       UpdateDefByOperand(Inst->GetOperand(0), Node);
+      UpdateDefByOperand(MachineOperand::CreateRegister(RSP), Node);
       break;
     }
 
@@ -127,7 +131,8 @@ static void AddDependency(
 
   auto *Inst = Current->Instruction();
   switch(Inst->GetOpcode()) {
-    // TODO: Add all opcodes
+    // XXX: New opcodes need to be added here
+    // XXX: Effects of instructions need to be modeled properly
     case MachineInstruction::Opcode::Mov: {
       AddDependencyByOperand(Inst->GetOperand(0));
       break;
@@ -160,8 +165,11 @@ static void AddDependency(
 
     case MachineInstruction::Opcode::Push: {
       AddDependencyByOperand(Inst->GetOperand(0));
+      AddDependencyByOperand(MachineOperand::CreateRegister(RSP));
+      break;
     }
     case MachineInstruction::Opcode::Pop: {
+      AddDependencyByOperand(MachineOperand::CreateRegister(RSP));
       break;
     }
 
@@ -257,6 +265,10 @@ void PrecedenceGraph::Build() {
     Nodes_.push_back(Node);
   }
 
+#if DEBUG_INSTSCHED
+  DEBUG("Block: %s, Size: %lu\n", Block_->Name(), Nodes_.size());
+#endif 
+
   // handle barrier nodes
   for(auto *BarrierNode : BarrierNodes) {
     bool BeforeBarrier = true;
@@ -277,7 +289,12 @@ void PrecedenceGraph::Build() {
 std::vector<PrecedenceGraphNode*> PrecedenceGraph::Leaves() const {
   std::vector<PrecedenceGraphNode*> Leafs;
   for(auto *Node : Nodes_) {
-    if(Node->Successors().empty()) {
+    if(Node->Predecessors().empty()) {
+#if DEBUG_INSTSCHED
+      std::stringstream SS("");
+      Node->Instruction()->Emit(SS);
+      DEBUG("Leaf: %s\n", SS.str().c_str());
+#endif 
       Leafs.push_back(Node);
     }
   }
@@ -322,10 +339,21 @@ void ListScheduler::ScheduleBlock(MachineBasicBlock* Block) {
       if(Start[Node] + CalculateCycle(Node) <= Cycle) {
         // op completed
         Scheduled.push_back(Node);
+
+#if DEBUG_INSTSCHED
+        std::stringstream SS("");
+        Node->Instruction()->Emit(SS);
+        DEBUG("Scheduled: %s\n", SS.str().c_str());
+#endif
         
         // add ready nodes
         for(auto *Succ : Node->Successors()) {
           if(Succ->IsReady(Scheduled)) {
+#if DEBUG_INSTSCHED
+            std::stringstream SS("");
+            Succ->Instruction()->Emit(SS);
+            DEBUG("Adding ready: %s\n", SS.str().c_str());
+#endif 
             ReadyNodes.push(Succ);
           }
         }

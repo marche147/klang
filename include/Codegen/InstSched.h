@@ -3,6 +3,8 @@
 
 #include <Codegen/Codegen.h>
 
+#define DEBUG_INSTSCHED 1
+
 namespace klang {
 
 class PrecedenceGraphNode {
@@ -11,8 +13,8 @@ public:
 
   MachineInstruction* Instruction() const { return Inst_; }
 
-  const std::vector<PrecedenceGraphNode*>& Successors() const { return Succs_; }
-  const std::vector<PrecedenceGraphNode*>& Predecessors() const { return Preds_; }
+  const std::set<PrecedenceGraphNode*>& Successors() const { return Succs_; }
+  const std::set<PrecedenceGraphNode*>& Predecessors() const { return Preds_; }
 
   bool IsReady(const std::vector<PrecedenceGraphNode*>& Scheduled) const {
     for(auto *Pred : Preds_) {
@@ -29,13 +31,13 @@ public:
   }
 
 protected:
-  void AddSuccessor(PrecedenceGraphNode* Node) { Succs_.push_back(Node); }
-  void AddPredecessor(PrecedenceGraphNode* Node) { Preds_.push_back(Node); }
+  void AddSuccessor(PrecedenceGraphNode* Node) { Succs_.insert(Node); }
+  void AddPredecessor(PrecedenceGraphNode* Node) { Preds_.insert(Node); }
 
 private:
   MachineInstruction* Inst_;
-  std::vector<PrecedenceGraphNode*> Succs_;
-  std::vector<PrecedenceGraphNode*> Preds_;
+  std::set<PrecedenceGraphNode*> Succs_;
+  std::set<PrecedenceGraphNode*> Preds_;
 };
 
 class PrecedenceGraph {
@@ -49,6 +51,7 @@ public:
 
   void Build();
 
+  size_t Size() const { return Nodes_.size(); }
   const std::vector<PrecedenceGraphNode*>& Nodes() const { return Nodes_; }
 
   std::vector<PrecedenceGraphNode*> Leaves() const;

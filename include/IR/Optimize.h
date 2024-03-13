@@ -4,8 +4,9 @@
 #include <IR/IR.h>
 
 #include <map>
+#include <optional>
 
-#define DEBUG_OPTIMIZE 1
+#define DEBUG_OPTIMIZE 0
 
 namespace klang {
 

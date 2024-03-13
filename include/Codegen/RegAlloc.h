@@ -3,7 +3,7 @@
 
 #include <Codegen/Codegen.h>
 
-#define DEBUG_REGALLOC 1
+#define DEBUG_REGALLOC 0
 
 namespace klang {
 
