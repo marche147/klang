@@ -20,7 +20,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-gcc -o $EXE $OUT $RUNTIME_DIR/*
+gcc -no-pie -o $EXE $OUT $RUNTIME_DIR/*
 if [ $? -ne 0 ]; then
     exit 1
 fi
