@@ -49,6 +49,9 @@ private:
   std::vector<Interval*> ComputeInterval(const std::vector<MachineBasicBlock*>& Blocks);
   void ComputeIntervalSingle(const std::vector<MachineBasicBlock*>& Blocks, MachineInstruction* Inst, std::vector<Interval*>& Intervals);
   void FixupCallInst(MachineInstruction* Inst, std::vector<Interval*>& Intervals);
+
+  bool InstructionInLoop(MachineInstruction* Inst);
+  std::pair<MachineBasicBlock*, MachineBasicBlock*> FindLoopEntryExitBlock(MachineBasicBlock* Block);
   
   int AllocateSpillSlot(Interval* I) {
     if(SpilledIntervals_.count(I))

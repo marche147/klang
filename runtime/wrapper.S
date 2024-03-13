@@ -55,7 +55,7 @@ K_inputs:
   push rbp 
   mov rbp, rsp 
   and rsp, -16
-  call do_prints 
+  call do_inputs 
   mov rsp, rbp
   pop rbp
   ret

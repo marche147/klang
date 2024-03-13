@@ -382,6 +382,30 @@ int64_t BinaryInst::Evaluate(Operation Op, int64_t Op1, int64_t Op2) {
     case Xor: Result = Op1 ^ Op2; break;
     case Shl: Result = Op1 << Op2; break;
     case Shr: Result = Op1 >> Op2; break;
+    case Lt: {
+      Result = Op1 < Op2 ? 1 : 0;
+      break;
+    }
+    case Le: {
+      Result = Op1 <= Op2 ? 1 : 0;
+      break;
+    }
+    case Gt: {
+      Result = Op1 > Op2 ? 1 : 0;
+      break;
+    }
+    case Ge: {
+      Result = Op1 >= Op2 ? 1 : 0;
+      break;
+    }
+    case Eq: {
+      Result = Op1 == Op2 ? 1 : 0;
+      break;
+    }
+    case Ne: {
+      Result = Op1 != Op2 ? 1 : 0;
+      break;
+    }
     default: assert(false && "Invalid binary operation");
   }
   return Result;

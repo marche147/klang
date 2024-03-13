@@ -41,6 +41,64 @@ std::vector<Interval*> LinearScanRegAlloc::ComputeInterval(const std::vector<Mac
   return Intervals;
 }
 
+bool LinearScanRegAlloc::InstructionInLoop(MachineInstruction* Inst) {
+  auto *Start = Inst->Parent();
+  bool Result = false;
+  std::set<MachineBasicBlock*> Visited;
+
+  std::function<void(MachineBasicBlock*)> Visitor = [&](MachineBasicBlock* BB) {
+    if(Visited.count(BB) > 0) {
+      return;
+    }
+    Visited.insert(BB);
+    if(BB == Start) {
+      Result = true;
+      return;
+    }
+    for(auto *Succ : BB->Successors()) {
+      Visitor(Succ);
+    }
+  };
+
+  for(auto *Succ : Start->Successors()) {
+    Visitor(Succ);
+  }
+  return Result;
+}
+
+std::pair<MachineBasicBlock*, MachineBasicBlock*> LinearScanRegAlloc::FindLoopEntryExitBlock(MachineBasicBlock* Block) {
+  std::set<MachineBasicBlock*> Visited;
+  MachineBasicBlock* Entry = nullptr; 
+  MachineBasicBlock* Exit = nullptr;
+
+  std::function<void(MachineBasicBlock*)> Visitor = [&](MachineBasicBlock* Current) {
+    if(Visited.count(Current) > 0) {
+      return;
+    }
+    Visited.insert(Current);
+
+    for(auto *Succ : Current->Successors()) {
+      auto Next = Succ->Successors();
+      if(Next.size() == 2) {
+        int Start = InstToOrder_[*(Succ->begin())];
+        int A = InstToOrder_[*(Next[0]->begin())];
+        int B = InstToOrder_[*(Next[1]->begin())];
+        if(A <= Start && Start <= B) {
+          Entry = Next[0];
+          Exit = Succ;
+        } else if(B <= Start && Start <= A) {
+          Entry = Next[1];
+          Exit = Succ;
+        }
+      }
+      Visitor(Succ);
+    }
+  };
+
+  Visitor(Block);
+  return std::make_pair(Entry, Exit);
+}
+
 void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlock*>& Blocks, MachineInstruction* Inst, std::vector<Interval*>& Intervals) {
   int Start = InstToOrder_[Inst];
   int End = -1;   // Compute end
@@ -61,20 +119,32 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
         Current++;
       }
 
-      // SPECIAL CASE: extend the interval if it end's in a loop
-      auto *EndInst = OrderToInst_[End];
-      auto *EndBB = EndInst->Parent();
-      auto *Last = *(EndBB->rbegin());
-      for(auto *Succ : EndBB->Successors()) {
-        if(Succ == EndBB) {
 #if DEBUG_REGALLOC
-          DEBUG("Found backedge in block %s, extending interval\n", EndBB->Name());
-#endif
-          End = InstToOrder_[Last];
-          break; 
-        }
+      DEBUG("Linear scan register interval for virt reg %d: [%d, %d]\n", Op.GetVirtualRegister(), Start, End);
+#endif 
+
+      // XXX: nested loops are not supported
+      auto *StartInst = OrderToInst_[Start];
+      if(InstructionInLoop(StartInst)) {
+        auto [Entry, Exit] = FindLoopEntryExitBlock(StartInst->Parent());
+#if DEBUG_REGALLOC
+        DEBUG("Found loop entry and exit block for instruction %s: %s, %s\n", StartInst->Parent()->Name(), Entry->Name(), Exit->Name());
+#endif 
+        int EStart = InstToOrder_[*Entry->begin()];
+        assert(EStart <= Start && "loop entry should be before the start of the interval");
+        Start = EStart;
       }
-      
+
+      auto *EndInst = OrderToInst_[End];
+      if(InstructionInLoop(EndInst)) {
+        auto [Entry, Exit] = FindLoopEntryExitBlock(EndInst->Parent());
+#if DEBUG_REGALLOC
+        DEBUG("Found loop entry and exit block for instruction %s: %s, %s\n", EndInst->Parent()->Name(), Entry->Name(), Exit->Name());
+#endif 
+        int EEnd = InstToOrder_[*Exit->rbegin()];
+        assert(EEnd >= End && "loop exit should be after the end of the interval");
+        End = EEnd;
+      }
 
 #if DEBUG_REGALLOC
       DEBUG("Found interval for virtual register %d: [%d, %d]\n", Op.GetVirtualRegister(), Start, End);

@@ -1,7 +1,9 @@
 #include <Semantic/AST.h>
+#include <Logging.h>
 
 #include <iostream>
 #include <cassert>
+#include <cstring>
 
 namespace klang {
 
@@ -24,7 +26,7 @@ std::optional<ASTFuncPrototype> ASTModule::GetPrototype(const char* Name) const 
   }
 
   for(auto *F : Functions_) {
-    if(F->GetName() == Name) {
+    if(std::strcmp(F->GetName(), Name) == 0) {
       return F->GetPrototype();
     }
   }

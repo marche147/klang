@@ -5,7 +5,7 @@
 
 #include <map>
 
-#define DEBUG_OPTIMIZE 0
+#define DEBUG_OPTIMIZE 1
 
 namespace klang {
 

@@ -146,7 +146,7 @@ argument
 type
         : INT           { $$ = TY_INTEGER; }
         | ARRAY         { $$ = TY_ARRAY; }
-        | STRING        { $$ = TY_STRING; }
+        | STRINGK        { $$ = TY_STRING; }
         | VOID          { $$ = TY_VOID; }
         ;
 

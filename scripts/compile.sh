@@ -3,8 +3,8 @@
 set -e
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-RUNTIME_DIR=$(dirname $SCRIPT_DIR)/runtime
-COMPILER=$(dirname $SCRIPT_DIR)//klang
+RUNTIME_DIR="$SCRIPT_DIR/runtime"
+COMPILER="$SCRIPT_DIR/klang"
 
 if [ $# -lt 2 ]; then
     echo "Usage: compile.sh <source_file> <out>"

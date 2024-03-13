@@ -33,7 +33,7 @@ ESCAPE          (\\[^\n])
 %%
 
 [\t ]+    { /* ignore whitespace */ }
-\n        { ++yylineno; }
+\n       { yylineno++; }    
 
 "int"       { return Parser::make_INT(location()); }
 "array"     { return Parser::make_ARRAY(location()); }
@@ -79,6 +79,7 @@ ESCAPE          (\\[^\n])
 <C_COMMENT>"*/"     { BEGIN(INITIAL); }
 <C_COMMENT><<EOF>>  { yyerror("unterminated block comment"); }
 <C_COMMENT>.
+<C_COMMENT>\n        { yylineno++; }
 
 \"                 { BEGIN(C_STRING); }
 <C_STRING>\n       { yyerror("string literal not terminated when hitting newline"); }

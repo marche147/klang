@@ -184,6 +184,38 @@ static bool VerifyStatement(ASTStatement* S) {
           ERROR("Invalid condition type in while statement at line %d\n", S->GetLineNo());
           return false;
         }
+
+        // LIMIT: no nested loops
+        std::function<bool(ASTStatement*)> HasNestedLoop = [&](ASTStatement* S) {
+          bool Result = false; 
+          if(S->GetType() == ASTStatement::ST_WHILE) {
+            return true;
+          }
+          else if(S->GetType() == ASTStatement::ST_IF) {
+            auto *IS = static_cast<ASTStatementIf*>(S);
+            for(auto *ISS : IS->GetStatements()) {
+              Result |= HasNestedLoop(ISS);
+            }
+          }
+          else if(S->GetType() == ASTStatement::ST_IFELSE) {
+            auto *IES = static_cast<ASTStatementIfElse*>(S);
+            for(auto *ISS : IES->GetIfStatements()) {
+              Result |= HasNestedLoop(ISS);
+            }
+            for(auto *ISS : IES->GetElseStatements()) {
+              Result |= HasNestedLoop(ISS);
+            }
+          }
+          return Result;
+        };
+
+        for(auto *SS : WS->GetStatements()) {
+          if(HasNestedLoop(SS)) {
+            ERROR("Nested loops are not supported at line %d\n", S->GetLineNo());
+            return false;
+          }
+        }
+
         if(!VerifyBlock(WS->GetStatements())) {
           return false;
         }
@@ -315,7 +347,7 @@ static bool BlockEndsWithReturn(const std::vector<ASTStatement*>& Statements) {
   return Statements.back()->GetType() == ASTStatement::ST_RETURN;
 }
 
-Operand IRGen::GenerateExpression(FuncGenCtx& Ctx, ASTExpression* E) {
+Operand IRGen::GenerateExpression(FuncGenCtx& Ctx, ASTExpression* E, bool CallVoid) {
   switch(E->GetType()) {
     case ASTExpression::EX_INTEGER: {
       return __ Imm(static_cast<ASTExpressionInteger*>(E)->GetValue());
@@ -351,7 +383,7 @@ Operand IRGen::GenerateExpression(FuncGenCtx& Ctx, ASTExpression* E) {
         Args.push_back(GenerateExpression(Ctx, Arg));
       }
 
-      if(FCE->GetParent()->GetType() == ASTStatement::ST_CALL) {
+      if(CallVoid) {
         __ CallVoid(FCE->GetName().c_str(), Args);
       } else {
         __ Call(FCE->GetName().c_str(), RetVal, Args);
@@ -499,19 +531,18 @@ void IRGen::GenerateStatement(FuncGenCtx& Ctx, ASTStatement* S) {
       auto *NextB = __ CreateBlock();
 
       auto *LoopB = GenerateBlock(Ctx, WS->GetStatements());
-      __ SetInsertionPoint(Current);
-      __ Jmp(LoopB);
-
-      __ SetInsertionPoint(LoopB);
       auto Cond = GenerateExpression(Ctx, WS->GetCondition());
       __ Jnz(Cond, LoopB, NextB);
+
+      __ SetInsertionPoint(Current);
+      __ Jmp(LoopB);
 
       __ SetInsertionPoint(NextB);
       break;
     }
     case ASTStatement::ST_CALL: {
       auto *CS = static_cast<ASTStatementFunctionCall*>(S);
-      GenerateExpression(Ctx, CS->GetFunctionCall());
+      GenerateExpression(Ctx, CS->GetFunctionCall(), true);
       break;
     }
     default: {

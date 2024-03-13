@@ -35,7 +35,19 @@ struct FuncGenCtx {
   }
 
   Operand GetVariable(const ASTName& Name) {
-    return Variables[Name];
+    if(Variables.count(Name) > 0) {
+      return Variables[Name];
+    }
+
+    size_t I = 0;
+    for(auto Param : F->GetParameters()) {
+      if(Param.first == Name) {
+        return Operand::CreateParameter(I);
+      }
+      I++;
+    }
+    assert(false && "Variable not found");
+    return Operand();
   }
 
   ASTFunction* F;
@@ -55,7 +67,7 @@ private:
   Function* GenerateFunction(ModuleGenCtx& MCtx, ASTFunction* F);
   BasicBlock* GenerateBlock(FuncGenCtx& Ctx, const std::vector<ASTStatement*>& Statements);
   void GenerateStatement(FuncGenCtx& Ctx, ASTStatement* S);
-  Operand GenerateExpression(FuncGenCtx& Ctx, ASTExpression* E);
+  Operand GenerateExpression(FuncGenCtx& Ctx, ASTExpression* E, bool CallVoid = false);
 
   ASTModule* Module_;
 };

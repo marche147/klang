@@ -15,7 +15,7 @@ void do_printi(int64_t i) {
 }
 
 void do_prints(const char* s) {
-    printf("%s", s);
+    printf("%s\n", s);
 }
 
 int64_t do_inputi(void) {
@@ -69,6 +69,9 @@ struct array_t* do_array_new(int64_t size) {
 }
 
 int64_t do_array_load(struct array_t* arr, int64_t index) {
+    if(!arr) {
+        fatal("Array is null");
+    }
     if(index < 0 || index >= arr->size) {
         fatal("Array index out of bounds");
     }
@@ -76,6 +79,9 @@ int64_t do_array_load(struct array_t* arr, int64_t index) {
 }
 
 void do_array_store(struct array_t* arr, int64_t index, int64_t value) {
+    if(!arr) {
+        fatal("Array is null");
+    }
     if(index < 0 || index >= arr->size) {
         fatal("Array index out of bounds");
     }

@@ -1,11 +1,34 @@
-function main() : int a, int b, int c, int d, int e, int f, int g, int h, int i, int j -> int {
-  i := 3;
-  j := 1;
-  h := i + j;
-  a := inputi();
-  b := a / h;
-  printi(b);
-  b := b + 1;
-  printi(b);
+function main() : int a, array b, string c, int d, int e, int f -> int {
+  b := array_new(4);
+  a := 0;
+
+  c := inputs();
+  prints(c);
+
+  do { 
+    if(a > 2) {
+      b[a] := a * a;
+    } else {
+      b[a] := 1234;
+    };
+    a := a + 1;
+  } while(a < 4); 
+
+  d := inputi(); 
+  if(d == 0) {
+    e := 0;
+    f := 0;
+    do {
+      e := e + b[f];
+      f := f + 1;
+    } while(f < 4);
+    printi(e);
+  };
+
+  printi(add(b[1], b[2]));
   return 0; 
+}
+
+function add(int a, int b) : -> int {
+  return a + b;
 }

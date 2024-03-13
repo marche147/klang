@@ -520,10 +520,12 @@ static bool DeadVariableEliminationBlock(BasicBlock* BB, const LivenessState& St
     }
   }
 
-  // Call operands are needed
+  // Add other needed operands
   for(auto InstIt = BB->begin(); InstIt != BB->end(); InstIt++) {
     auto &Inst = *InstIt;
-    if(Inst.Type() == Instruction::Call || Inst.Type() == Instruction::CallVoid) {
+    if(Inst.Type() == Instruction::Call 
+    || Inst.Type() == Instruction::CallVoid 
+    || Inst.Type() == Instruction::ArrayStore) {
       for(size_t i = 0; i < Inst.Ins(); i++) {
         auto Op = Inst.GetIn(i);
         if(Op.IsRegister()) {
