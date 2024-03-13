@@ -218,7 +218,8 @@ static int CalculateCycle(PrecedenceGraphNode* Node) {
       return 3;
     }
 
-    case MachineInstruction::Opcode::IMul: {
+    case MachineInstruction::Opcode::IMul:
+    case MachineInstruction::Opcode::IDiv: {
       return 5;
     }    
 
@@ -230,7 +231,8 @@ static int CalculateCycle(PrecedenceGraphNode* Node) {
     }
 
     case MachineInstruction::Opcode::Push:
-    case MachineInstruction::Opcode::Pop: {
+    case MachineInstruction::Opcode::Pop:
+    case MachineInstruction::Opcode::Cqo: {
       return 1;
     }
 
