@@ -231,27 +231,31 @@ void MachineOperand::Emit(std::stringstream& SS) const {
   }
 }
 
-void MachineOperand::EmitRegister(std::stringstream& SS, MachineRegister Reg) const {
+const char* GetRegisterName(MachineRegister Reg) {
   switch(Reg) {
-    case MachineRegister::None: SS << "none"; break;
-    case MachineRegister::RAX: SS << "rax"; break;
-    case MachineRegister::RBX: SS << "rbx"; break;
-    case MachineRegister::RCX: SS << "rcx"; break;
-    case MachineRegister::RDX: SS << "rdx"; break;
-    case MachineRegister::RSP: SS << "rsp"; break;
-    case MachineRegister::RBP: SS << "rbp"; break;
-    case MachineRegister::RSI: SS << "rsi"; break;
-    case MachineRegister::RDI: SS << "rdi"; break;
-    case MachineRegister::R8: SS << "r8"; break;
-    case MachineRegister::R9: SS << "r9"; break;
-    case MachineRegister::R10: SS << "r10"; break;
-    case MachineRegister::R11: SS << "r11"; break;
-    case MachineRegister::R12: SS << "r12"; break;
-    case MachineRegister::R13: SS << "r13"; break;
-    case MachineRegister::R14: SS << "r14"; break;
-    case MachineRegister::R15: SS << "r15"; break;
+    case MachineRegister::None: return "none";
+    case MachineRegister::RAX: return "rax";
+    case MachineRegister::RBX: return "rbx";
+    case MachineRegister::RCX: return "rcx";
+    case MachineRegister::RDX: return "rdx";
+    case MachineRegister::RSP: return "rsp";
+    case MachineRegister::RBP: return "rbp";
+    case MachineRegister::RSI: return "rsi";
+    case MachineRegister::RDI: return "rdi";
+    case MachineRegister::R8: return "r8";
+    case MachineRegister::R9: return "r9";
+    case MachineRegister::R10: return "r10";
+    case MachineRegister::R11: return "r11";
+    case MachineRegister::R12: return "r12";
+    case MachineRegister::R13: return "r13";
+    case MachineRegister::R14: return "r14";
+    case MachineRegister::R15: return "r15";
     default: __builtin_unreachable();
   }
+}
+
+void MachineOperand::EmitRegister(std::stringstream& SS, MachineRegister Reg) const {
+  SS << GetRegisterName(Reg);
 }
 
 void MachineOperand::EmitImmediate(std::stringstream& SS, int64_t Imm) const {

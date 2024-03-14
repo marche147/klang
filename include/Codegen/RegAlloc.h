@@ -3,7 +3,7 @@
 
 #include <Codegen/Codegen.h>
 
-#define DEBUG_REGALLOC 0
+#define DEBUG_REGALLOC 1
 
 namespace klang {
 
@@ -66,7 +66,7 @@ private:
     for(size_t i = 0; i < OrderToInst_.size(); i++) {
       SS.str("");
       OrderToInst_[i]->Emit(SS);
-      std::cout << i << ": " << SS.str() << std::endl;
+      std::cerr << i << ": " << SS.str() << std::endl;
     }
   }
 

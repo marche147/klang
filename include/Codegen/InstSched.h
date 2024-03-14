@@ -3,7 +3,7 @@
 
 #include <Codegen/Codegen.h>
 
-#define DEBUG_INSTSCHED 1
+#define DEBUG_INSTSCHED 0
 
 namespace klang {
 

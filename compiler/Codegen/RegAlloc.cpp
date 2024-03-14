@@ -196,16 +196,18 @@ void LinearScanRegAlloc::FixupCallInst(MachineInstruction* Inst, std::vector<Int
 
   // need to save active registers
   for(auto *I : ActiveAtCall) {
-    int Spill = AllocateSpillSlot(I);
-    auto SpillSlot = MachineOperand::CreateMemory(RBP, -(Spill + 1) * MachineOperand::WordSize());
-    Inst->Parent()->InsertBefore(new MovMachineInst(
-      MachineOperand::CreateRegister(I->Reg()), 
-      SpillSlot
-    ), Inst);
-    Inst->Parent()->InsertAfter(new MovMachineInst(
-      SpillSlot,
-      MachineOperand::CreateRegister(I->Reg())
-    ), Inst);
+    if(I->Reg() != None) {
+      int Spill = AllocateSpillSlot(I);
+      auto SpillSlot = MachineOperand::CreateMemory(RBP, -(Spill + 1) * MachineOperand::WordSize());
+      Inst->Parent()->InsertBefore(new MovMachineInst(
+        MachineOperand::CreateRegister(I->Reg()), 
+        SpillSlot
+      ), Inst);
+      Inst->Parent()->InsertAfter(new MovMachineInst(
+        SpillSlot,
+        MachineOperand::CreateRegister(I->Reg())
+      ), Inst);
+    }
   }
 }
 
@@ -220,6 +222,7 @@ bool LinearScanRegAlloc::Allocate() {
   auto Blocks = SortBlocks();
 
 #if DEBUG_REGALLOC
+  std::stringstream SS;
   DEBUG("Sorted %d blocks\n", Blocks.size());
 #endif 
 
@@ -295,6 +298,7 @@ bool LinearScanRegAlloc::Allocate() {
       Active.pop_back();
 
       ActiveToRegister[Current] = Reg;
+      Current->SetReg(Reg);
       AddActive(Current);
       return std::make_tuple(Last, Reg);
     }
@@ -307,30 +311,60 @@ bool LinearScanRegAlloc::Allocate() {
       auto [Spilled, _] = SpillAtInterval(I);
       auto Slot = AllocateSpillSlot(Spilled);
       Spilled->SpillAt(I->Start(), Slot);
+#if DEBUG_REGALLOC
+      DEBUG("Spilling interval (%d)[%d, %d] to slot %d\n", Spilled->VirtRegId(), Spilled->Start(), Spilled->End(), Slot);
+      DEBUG("Current interval (%d)[%d, %d]\n", I->VirtRegId(), I->Start(), I->End());
+      if(I == Spilled) {
+        DEBUG("Spilled interval is the same as the current interval\n");
+      } else {
+        DEBUG("Spilled interval is different from the current interval\n");
+      }
+#endif 
     } else {
       AllocateFreeRegister(I);
       I->SetReg(ActiveToRegister[I]);
       AddActive(I);
+#if DEBUG_REGALLOC
+      DEBUG("Allocating register %s to interval (%d)[%d, %d]\n", GetRegisterName(I->Reg()), I->VirtRegId(), I->Start(), I->End());
+#endif
     }
   }
+
+#if DEBUG_REGALLOC
+  SS.str("");
+  Func_->Emit(SS);
+  DEBUG("Original:\n%s\n", SS.str().c_str());
+#endif 
 
   // Rewrite code to use physical registers
   for(auto *I : Intervals) {
     if(!I->IsSpilled()) {
       // Simply replace virtual register with physical register
+#if DEBUG_REGALLOC
+      DEBUG("Replacing virtual register %d [%d, %d] with physical register %s\n", I->VirtRegId(), I->Start(), I->End(), GetRegisterName(I->Reg()));
+#endif 
+      assert(I->Reg() != None && "Interval should have a register assigned");
       for(int i = I->Start(); i <= I->End(); i++) {
         ReplaceVirtualRegister(OrderToInst_[i], I->VirtRegId(), I->Reg());
       }
     } else {
       // Use allocated register before spilling
+      auto SpillSlot = MachineOperand::CreateMemory(RBP, -(I->SpillSlot() + 1) * MachineOperand::WordSize());
+
+#ifdef DEBUG_REGALLOC
+      DEBUG("Spilling interval (%d)[%d, %d] to slot %d at %d\n", I->VirtRegId(), I->Start(), I->End(), I->SpillSlot(), I->SpillAt());
+#endif 
+
       for(int i = I->Start(); i < I->SpillAt(); i++) {
         ReplaceVirtualRegister(OrderToInst_[i], I->VirtRegId(), I->Reg());
       }
 
       // Spill
-      auto SpillSlot = MachineOperand::CreateMemory(RBP, -(I->SpillSlot() + 1) * MachineOperand::WordSize());
-      auto *SpillAtInst = OrderToInst_[I->SpillAt()];
-      SpillAtInst->Parent()->InsertBefore(new MovMachineInst(SpillSlot, MachineOperand::CreateRegister(I->Reg())), SpillAtInst);
+      if(I->Reg() != None) {
+        // VirtReg was in physical register before spilling
+        auto *SpillAtInst = OrderToInst_[I->SpillAt()];
+        SpillAtInst->Parent()->InsertBefore(new MovMachineInst(MachineOperand::CreateRegister(I->Reg()), SpillSlot), SpillAtInst);
+      }
 
       // Use memory for the rest of the interval
       for(int i = I->SpillAt(); i <= I->End(); i++) {
@@ -339,8 +373,20 @@ bool LinearScanRegAlloc::Allocate() {
     }
   }
 
+#if DEBUG_REGALLOC
+  SS.str("");
+  Func_->Emit(SS);
+  DEBUG("Rewritten:\n%s\n", SS.str().c_str());
+#endif 
+
   // needs fixup for instructions with 2 or more memory operands
   FixupInstruction(Func_);
+
+#if DEBUG_REGALLOC
+  SS.str("");
+  Func_->Emit(SS);
+  DEBUG("Rewritten after fixup:\n%s\n", SS.str().c_str());
+#endif 
 
   // Fixup call instructions
   for(auto KV : InstToOrder_) {
@@ -424,14 +470,22 @@ bool FixupInstruction(MachineFunction* F) {
         case MachineInstruction::Opcode::CMov: {
           auto Src = Inst->GetOperand(0);
           auto Dst = Inst->GetOperand(1);
-          if(Src.IsMemory() && Dst.IsMemory()) {
+          
+          auto NewSrc = Src;
+          auto NewDst = Dst;
+          if(Src.IsImmediate()) {
             Inst->Parent()->InsertBefore(new MovMachineInst(Src, MachineOperand::CreateRegister(RAX)), Inst);
-            Inst->ReplaceOperand(0, MachineOperand::CreateRegister(RAX));
-          } else if(Src.IsImmediate()) {
-            // Operation does not support embedded immediate
-            Inst->Parent()->InsertBefore(new MovMachineInst(Src, MachineOperand::CreateRegister(RAX)), Inst);
-            Inst->ReplaceOperand(0, MachineOperand::CreateRegister(RAX));
+            NewSrc = MachineOperand::CreateRegister(RAX);
           }
+
+          if(Dst.IsMemory()) {
+            Inst->Parent()->InsertBefore(new MovMachineInst(Dst, MachineOperand::CreateRegister(RDX)), Inst);
+            Inst->Parent()->InsertAfter(new MovMachineInst(MachineOperand::CreateRegister(RDX), Dst), Inst);
+            NewDst = MachineOperand::CreateRegister(RDX);
+          }
+
+          Inst->ReplaceOperand(0, NewSrc);
+          Inst->ReplaceOperand(1, NewDst);
           break;
         }
         default:

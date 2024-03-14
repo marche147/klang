@@ -193,6 +193,8 @@ enum MachineRegister : int {
   R15
 };
 
+const char* GetRegisterName(MachineRegister Reg);
+
 class MachineOperand {
 public:
   enum class Kind : int {
