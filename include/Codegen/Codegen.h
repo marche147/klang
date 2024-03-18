@@ -38,6 +38,8 @@ public:
   std::vector<MachineBasicBlock*>::const_reverse_iterator rbegin() const { return BasicBlocks_.rbegin(); }
   std::vector<MachineBasicBlock*>::const_reverse_iterator rend() const { return BasicBlocks_.rend(); }
 
+  std::vector<MachineBasicBlock*> PostOrder() const;
+
 private:
   std::string Name_;
   size_t Size_, NumParams_;

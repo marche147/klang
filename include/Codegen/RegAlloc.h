@@ -2,10 +2,37 @@
 #define _REGALLOC_H
 
 #include <Codegen/Codegen.h>
+#include <IR/Analysis.h>
 
 #define DEBUG_REGALLOC 1
 
 namespace klang {
+
+struct MRegLivenessState {
+  MRegLivenessState() : Live_() {}
+
+  static MRegLivenessState Empty(MachineFunction* F) {
+    return MRegLivenessState();
+  }
+
+  void Meet(const MRegLivenessState& Other);
+  void Transfer(const MachineInstruction* Inst);
+
+  bool operator==(const MRegLivenessState& Other) const {
+    return Live_ == Other.Live_;
+  }
+
+  bool Contains(size_t Reg) const {
+    return Live_.count(Reg);
+  }
+
+  std::set<size_t> Live_;
+};
+
+template<typename T, bool Direction = true>
+AnalysisResult<T, MachineBasicBlock> MFDataflowAnalysis(MachineFunction* F) {
+  return DoAnalysis<T, MachineBasicBlock, MachineFunction, Direction>(F);
+}
 
 class Interval {
 public:

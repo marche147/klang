@@ -10,11 +10,11 @@
 
 namespace klang {
 
-template <typename T>
-using State = std::unordered_map<BasicBlock*, T>;
+template <typename T, typename BB>
+using State = std::unordered_map<BB*, T>;
 
-template <typename T>
-using AnalysisResult = std::pair<State<T>, State<T>>;
+template <typename T, typename BB>
+using AnalysisResult = std::pair<State<T, BB>, State<T, BB>>;
 
 template <typename T>
 class WorkList {
@@ -48,17 +48,18 @@ private:
   std::deque<T> Queue_;
 };
 
-using BasicBlockWorkList = WorkList<BasicBlock*>;
+template<typename BB>
+using BasicBlockWorkList = WorkList<BB*>;
 
-template <typename T, bool Direction = true>
-AnalysisResult<T> DataflowAnalysis(Function* F) {
+template <typename T, typename BBT, typename FNT, bool Direction = true>
+AnalysisResult<T, BBT> DoAnalysis(FNT* F) {
   auto BBs = F->PostOrder();
   if(Direction) {
     std::reverse(BBs.begin(), BBs.end());
   }
-  BasicBlockWorkList WorkList(BBs.begin(), BBs.end());
+  BasicBlockWorkList<BBT> WorkList(BBs.begin(), BBs.end());
 
-  State<T> In, Out;
+  State<T, BBT> In, Out;
 
   while(!WorkList.Empty()) {
     auto *BB = WorkList.Pop();
@@ -123,6 +124,11 @@ AnalysisResult<T> DataflowAnalysis(Function* F) {
     }
   }
   return std::make_pair(In, Out);
+}
+
+template<typename T, bool Direction = true>
+AnalysisResult<T, BasicBlock> DataflowAnalysis(Function* F) {
+  return DoAnalysis<T, BasicBlock, Function, Direction>(F);
 }
 
 } // namespace klang

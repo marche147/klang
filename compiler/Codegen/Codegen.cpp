@@ -41,6 +41,26 @@ void MachineFunction::Emit(std::stringstream& SS) const {
   }
 }
 
+std::vector<MachineBasicBlock*> MachineFunction::PostOrder() const {
+  std::vector<MachineBasicBlock*> Result;
+  std::set<MachineBasicBlock*> Visited;
+
+  assert(BasicBlocks_.size() > 0 && "Empty function");
+
+  std::function<void(MachineBasicBlock*)> Visitor = [&](MachineBasicBlock* BB) {
+    if(Visited.count(BB) > 0) {
+      return;
+    }
+    Visited.insert(BB);
+    for(auto *Succ : BB->Successors()) {
+      Visitor(Succ);
+    }
+    Result.push_back(BB);
+  };
+  Visitor(BasicBlocks_[0]);
+  return Result;
+}
+
 void MachineBasicBlock::AddInstruction(MachineInstruction* Inst) {
   if(Head_ == nullptr) {
     Head_ = Inst;

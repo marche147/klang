@@ -1,28 +1,84 @@
 #include <Codegen/RegAlloc.h>
+#include <IR/Analysis.h>
 #include <Logging.h>
 
 // https://www.cs.rice.edu/~kvp1/spring2008/lecture7.pdf
-// TODO: need more testing
+// XXX: Refine handling for intervals using dataflow analysis 
 
 namespace klang {
 
+void MRegLivenessState::Meet(const MRegLivenessState& Other) {
+  for(auto Reg : Other.Live_) {
+    Live_.insert(Reg);
+  }
+}
+
+void MRegLivenessState::Transfer(const MachineInstruction* Inst) {
+  auto Op = Inst->GetOpcode();
+  switch(Op) {
+    case MachineInstruction::Opcode::Mov:
+    case MachineInstruction::Opcode::CMov:
+    case MachineInstruction::Opcode::Add: 
+    case MachineInstruction::Opcode::Sub:
+    case MachineInstruction::Opcode::IMul: 
+    case MachineInstruction::Opcode::And: 
+    case MachineInstruction::Opcode::Or: 
+    case MachineInstruction::Opcode::Xor: {
+      auto Src = Inst->GetOperand(0);
+      auto Dst = Inst->GetOperand(1);
+      if(Dst.IsVirtualRegister()) {
+        Live_.erase(Src.GetVirtualRegister());
+      }
+      if(Src.IsVirtualRegister()) {
+        Live_.insert(Dst.GetVirtualRegister());
+      }
+      break;
+    }
+
+    case MachineInstruction::Opcode::Cmp:
+    case MachineInstruction::Opcode::Test: {
+      auto Src1 = Inst->GetOperand(0);
+      auto Src2 = Inst->GetOperand(1);
+      if(Src1.IsVirtualRegister()) {
+        Live_.insert(Src1.GetVirtualRegister());
+      }
+      if(Src2.IsVirtualRegister()) {
+        Live_.insert(Src2.GetVirtualRegister());
+      }
+      break;
+    }
+
+    case MachineInstruction::Opcode::Jmp:
+    case MachineInstruction::Opcode::Jcc:
+    case MachineInstruction::Opcode::Ret:
+    case MachineInstruction::Opcode::Call: 
+    case MachineInstruction::Opcode::Cqo: {
+      break;
+    }
+
+    case MachineInstruction::Opcode::Push:
+    case MachineInstruction::Opcode::IDiv: {
+      auto Src = Inst->GetOperand(0);
+      if(Src.IsVirtualRegister()) {
+        Live_.insert(Src.GetVirtualRegister());
+      }
+      break;
+    }
+    case MachineInstruction::Opcode::Pop:
+    case MachineInstruction::Opcode::Lea: {
+      auto Dst = Inst->GetOperand(0);
+      if(Dst.IsVirtualRegister()) {
+        Live_.erase(Dst.GetVirtualRegister());
+      }
+      break;
+    }
+
+    default: assert(false && "Unhandled instruction");
+  }
+}
+
 std::vector<MachineBasicBlock*> LinearScanRegAlloc::SortBlocks() {
-  MachineBasicBlock* Entry = Func_->Entry();
-  std::vector<MachineBasicBlock*> Blocks;
-  std::set<MachineBasicBlock*> Visited;
-
-  std::function<void(MachineBasicBlock*)> PostOrderSort = [&](MachineBasicBlock* BB) {
-    if(Visited.count(BB) > 0) {
-      return;
-    }
-    Visited.insert(BB);
-    for(auto Succ : BB->Successors()) {
-      PostOrderSort(Succ);
-    }
-    Blocks.push_back(BB);
-  };
-
-  PostOrderSort(Entry);
+  auto Blocks = Func_->PostOrder();
   return std::vector(Blocks.rbegin(), Blocks.rend());
 }
 
@@ -102,6 +158,7 @@ std::pair<MachineBasicBlock*, MachineBasicBlock*> LinearScanRegAlloc::FindLoopEn
 void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlock*>& Blocks, MachineInstruction* Inst, std::vector<Interval*>& Intervals) {
   int Start = InstToOrder_[Inst];
   int End = -1;   // Compute end
+  auto [In, Out] = MFDataflowAnalysis<MRegLivenessState, false>(Func_);
 
   for(size_t i = 0; i < Inst->Size(); i++) {
     auto Op = Inst->GetOperand(i);
@@ -123,6 +180,7 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
       DEBUG("Linear scan register interval for virt reg %d: [%d, %d]\n", Op.GetVirtualRegister(), Start, End);
 #endif 
 
+#if 0
       // XXX: nested loops are not supported
       auto *StartInst = OrderToInst_[Start];
       if(InstructionInLoop(StartInst)) {
@@ -145,6 +203,10 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
         assert(EEnd >= End && "loop exit should be after the end of the interval");
         End = EEnd;
       }
+#endif 
+
+      // XXX: determine whether the interval needs
+      // an extension
 
 #if DEBUG_REGALLOC
       DEBUG("Found interval for virtual register %d: [%d, %d]\n", Op.GetVirtualRegister(), Start, End);
@@ -211,12 +273,8 @@ void LinearScanRegAlloc::FixupCallInst(MachineInstruction* Inst, std::vector<Int
   }
 }
 
-// XXX: What should we do if there are backedges in the CFG?
-// maybe fallback to local allocation??? that sucks
-// ++: should work since we only have two types of control flows other than the linear flow:
-// 1. if-else (which can be handled by topo sort)
-// 2. while (this should not affect the linear flow, since the loop is a single block)
-// XXX: How to handle `call` instructions? because the callee might clobber the registers
+// XXX: Currently the problem is that we cannot properly handle loops.
+//
 bool LinearScanRegAlloc::Allocate() {
   // Sort blocks by reverse post order
   auto Blocks = SortBlocks();
@@ -337,6 +395,7 @@ bool LinearScanRegAlloc::Allocate() {
 #endif 
 
   // Rewrite code to use physical registers
+  // XXX: This is not how you handle spills :<
   for(auto *I : Intervals) {
     if(!I->IsSpilled()) {
       // Simply replace virtual register with physical register
@@ -348,7 +407,7 @@ bool LinearScanRegAlloc::Allocate() {
         ReplaceVirtualRegister(OrderToInst_[i], I->VirtRegId(), I->Reg());
       }
     } else {
-      // Use allocated register before spilling
+      // XXX: Use allocated register before spilling.
       auto SpillSlot = MachineOperand::CreateMemory(RBP, -(I->SpillSlot() + 1) * MachineOperand::WordSize());
 
 #ifdef DEBUG_REGALLOC
