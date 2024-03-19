@@ -18,6 +18,8 @@ struct MRegLivenessState {
   void Meet(const MRegLivenessState& Other);
   void Transfer(const MachineInstruction* Inst);
 
+  void Print() const;
+
   bool operator==(const MRegLivenessState& Other) const {
     return Live_ == Other.Live_;
   }
@@ -102,6 +104,8 @@ private:
   std::unordered_map<int, MachineInstruction*> OrderToInst_;
   std::unordered_map<size_t, Interval*> VirtRegToInterval_;
   std::unordered_map<Interval*, int> SpilledIntervals_;
+
+  State<MRegLivenessState, MachineBasicBlock> LiveIn_, LiveOut_;
 };
 
 bool FixupInstruction(MachineFunction* F);

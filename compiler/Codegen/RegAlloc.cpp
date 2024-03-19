@@ -16,14 +16,24 @@ void MRegLivenessState::Meet(const MRegLivenessState& Other) {
 void MRegLivenessState::Transfer(const MachineInstruction* Inst) {
   auto Op = Inst->GetOpcode();
   switch(Op) {
+    case MachineInstruction::Opcode::Xor: {
+      auto Src = Inst->GetOperand(0);
+      auto Dst = Inst->GetOperand(1);
+      if(Src.IsVirtualRegister() && Dst.IsVirtualRegister()) {
+        if(Src.GetVirtualRegister() == Dst.GetVirtualRegister()) {
+          Live_.erase(Src.GetVirtualRegister());
+          break;
+        }
+      }
+      // fallthru:
+    }
     case MachineInstruction::Opcode::Mov:
     case MachineInstruction::Opcode::CMov:
     case MachineInstruction::Opcode::Add: 
     case MachineInstruction::Opcode::Sub:
     case MachineInstruction::Opcode::IMul: 
     case MachineInstruction::Opcode::And: 
-    case MachineInstruction::Opcode::Or: 
-    case MachineInstruction::Opcode::Xor: {
+    case MachineInstruction::Opcode::Or: {
       auto Src = Inst->GetOperand(0);
       auto Dst = Inst->GetOperand(1);
       if(Dst.IsVirtualRegister()) {
@@ -77,6 +87,14 @@ void MRegLivenessState::Transfer(const MachineInstruction* Inst) {
   }
 }
 
+void MRegLivenessState::Print() const {
+  std::cerr << "{ ";
+  for(auto Reg : Live_) {
+    std::cerr << Reg << ", ";
+  }
+  std::cerr << "}" << std::endl;
+}
+
 std::vector<MachineBasicBlock*> LinearScanRegAlloc::SortBlocks() {
   auto Blocks = Func_->PostOrder();
   return std::vector(Blocks.rbegin(), Blocks.rend());
@@ -84,6 +102,21 @@ std::vector<MachineBasicBlock*> LinearScanRegAlloc::SortBlocks() {
 
 std::vector<Interval*> LinearScanRegAlloc::ComputeInterval(const std::vector<MachineBasicBlock*>& Blocks) {
   std::vector<Interval*> Intervals;
+  auto [In, Out] = MFDataflowAnalysis<MRegLivenessState, false>(Func_);
+
+  LiveIn_ = In;
+  LiveOut_ = Out;
+
+#if DEBUG_REGALLOC
+  for(auto *BB : Blocks) {
+    auto InState = LiveIn_[BB];
+    auto OutState = LiveOut_[BB];
+    DEBUG("In state for block %s: ", BB->Name());
+    InState.Print();
+    DEBUG("Out state for block %s: ", BB->Name());
+    OutState.Print();
+  }
+#endif 
 
   for(auto *BB : Blocks) {
 #if DEBUG_REGALLOC
@@ -158,7 +191,6 @@ std::pair<MachineBasicBlock*, MachineBasicBlock*> LinearScanRegAlloc::FindLoopEn
 void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlock*>& Blocks, MachineInstruction* Inst, std::vector<Interval*>& Intervals) {
   int Start = InstToOrder_[Inst];
   int End = -1;   // Compute end
-  auto [In, Out] = MFDataflowAnalysis<MRegLivenessState, false>(Func_);
 
   for(size_t i = 0; i < Inst->Size(); i++) {
     auto Op = Inst->GetOperand(i);
@@ -208,7 +240,7 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
       // XXX: determine whether the interval needs
       // an extension
       for(auto *BB : Blocks) {
-        auto OutState = Out[BB];
+        auto OutState = LiveOut_[BB];
         if(OutState.Contains(Op.GetVirtualRegister())) {
           int BBEnd = InstToOrder_[*BB->rbegin()];
           if(BBEnd > End) {
@@ -217,7 +249,7 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
           }
         }
 
-        auto InState = In[BB];
+        auto InState = LiveIn_[BB];
         if(InState.Contains(Op.GetVirtualRegister())) {
           int BBStart = InstToOrder_[*BB->begin()];
           if(BBStart < Start) {
@@ -269,7 +301,7 @@ void LinearScanRegAlloc::FixupCallInst(MachineInstruction* Inst, std::vector<Int
 
     if(Order >= Start && Order <= RealEnd) {
 #if DEBUG_REGALLOC
-      DEBUG("Found active interval [%d, %d] at call site (%d)\n", Start, I->End(), Order);
+      DEBUG("Found active interval (%d)[%d, %d(%d)] at call site (%d)\n", I->VirtRegId(), Start, I->End(), RealEnd, Order);
 #endif 
       ActiveAtCall.insert(I);
     }
@@ -389,7 +421,7 @@ bool LinearScanRegAlloc::Allocate() {
       auto Slot = AllocateSpillSlot(Spilled);
       Spilled->SpillAt(I->Start(), Slot);
 #if DEBUG_REGALLOC
-      DEBUG("Spilling interval (%d)[%d, %d] to slot %d\n", Spilled->VirtRegId(), Spilled->Start(), Spilled->End(), Slot);
+      DEBUG("Spilling interval (%d)[%d, %d] to slot %d (at %d)\n", Spilled->VirtRegId(), Spilled->Start(), Spilled->End(), Slot, Spilled->SpillAt());
       DEBUG("Current interval (%d)[%d, %d]\n", I->VirtRegId(), I->Start(), I->End());
       if(I == Spilled) {
         DEBUG("Spilled interval is the same as the current interval\n");

@@ -19,8 +19,12 @@ void do_prints(const char* s) {
 }
 
 int64_t do_inputi(void) {
+    char buf[1024];
+    if(!fgets(buf, sizeof(buf), stdin)) {
+        fatal("Failed to read input");
+    }
     int64_t i;
-    scanf("%ld", &i);
+    i = strtol(buf, NULL, 10);
     return i;
 }
 

@@ -1,0 +1,31 @@
+function main() : array x -> int {
+    x := hack();
+    x[1] := 0x1234;
+    return 0;
+}
+
+function hack() : array a, int b, array c, array d, array e, array f, array g, string h, string i -> array {
+    a := array_new(4);
+    b := 1;
+    c := array_new(4); 
+    d := array_new(4); 
+    e := array_new(4); 
+    f := array_new(4); 
+    g := array_new(4);
+
+    do {
+        b := inputi();
+        if(b == 1234) {
+            c := array_new(c[0]); 
+            d := array_new(d[0]); 
+            e := array_new(e[0]); 
+            f := array_new(f[0]); 
+            g := array_new(g[0]);
+        };
+        b := b - 1;
+        i := inputs();
+        h := inputs();
+    } while(b > 0);
+    printi(b);
+    return d;
+}
