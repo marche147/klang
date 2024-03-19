@@ -152,10 +152,11 @@ static void AddDependency(
     case MachineInstruction::Opcode::Test: {
       AddDependencyByOperand(Inst->GetOperand(0));
       AddDependencyByOperand(Inst->GetOperand(1));
+      AddFlagsDependency();   // This ensures the the sequence of eflags is maintained
       break;
     }
 
-    // barriers
+    // Barriers
     case MachineInstruction::Opcode::Call: 
     case MachineInstruction::Opcode::Ret: 
     case MachineInstruction::Opcode::Jmp:
@@ -186,6 +187,7 @@ static void AddDependency(
       AddDependencyByOperand(MachineOperand::CreateRegister(RAX));
       AddDependencyByOperand(MachineOperand::CreateRegister(RDX));
       AddDependencyByOperand(Inst->GetOperand(0));
+      AddFlagsDependency();
       break;
     }
 
@@ -197,6 +199,8 @@ static void AddDependency(
   return;
 }
 
+// A very trivial cycle calculation
+// Uses heuristics to determine the cycle count
 static int CalculateCycle(PrecedenceGraphNode* Node) {
   auto *Inst = Node->Instruction();
   switch(Inst->GetOpcode()) {
