@@ -27,10 +27,10 @@ void MRegLivenessState::Transfer(const MachineInstruction* Inst) {
       auto Src = Inst->GetOperand(0);
       auto Dst = Inst->GetOperand(1);
       if(Dst.IsVirtualRegister()) {
-        Live_.erase(Src.GetVirtualRegister());
+        Live_.erase(Dst.GetVirtualRegister());
       }
       if(Src.IsVirtualRegister()) {
-        Live_.insert(Dst.GetVirtualRegister());
+        Live_.insert(Src.GetVirtualRegister());
       }
       break;
     }
@@ -207,6 +207,25 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
 
       // XXX: determine whether the interval needs
       // an extension
+      for(auto *BB : Blocks) {
+        auto OutState = Out[BB];
+        if(OutState.Contains(Op.GetVirtualRegister())) {
+          int BBEnd = InstToOrder_[*BB->rbegin()];
+          if(BBEnd > End) {
+            DEBUG("Extending interval end for virtual register %d: [%d, %d] -> [%d, %d]\n", Op.GetVirtualRegister(), Start, End, Start, BBEnd);
+            End = BBEnd;
+          }
+        }
+
+        auto InState = In[BB];
+        if(InState.Contains(Op.GetVirtualRegister())) {
+          int BBStart = InstToOrder_[*BB->begin()];
+          if(BBStart < Start) {
+            DEBUG("Extending interval start for virtual register %d: [%d, %d] -> [%d, %d]\n", Op.GetVirtualRegister(), Start, End, BBStart, End);
+            Start = BBStart;
+          }
+        }
+      }
 
 #if DEBUG_REGALLOC
       DEBUG("Found interval for virtual register %d: [%d, %d]\n", Op.GetVirtualRegister(), Start, End);
