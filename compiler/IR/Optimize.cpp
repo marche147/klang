@@ -247,10 +247,6 @@ static bool LocalCSEBlock(BasicBlock* BB) {
     i++;
   }
 
-#if DEBUG_OPTIMIZE
-  DEBUG("Found %d reusable expressions\n", Reusable.size());
-#endif
-
   for(auto &KV : Reusable) {
     if(KV.second.size() != 0) {
       auto *Def = Defs[KV.first];
@@ -305,9 +301,6 @@ static void ReplaceLHS(BasicBlock* Start, BasicBlock* Current, const CSEValue& V
 static bool GlobalCSEBlock(BasicBlock* BB, const GCSEState& State) {
   bool Changed = false;
 
-#if DEBUG_OPTIMIZE
-  DEBUG("GlobalCSEBlock: %d %d\n", BB->Index(), State.Values_.size());
-#endif
   for(auto InstIt = BB->begin(); InstIt != BB->end(); InstIt++) {
     auto &Inst = *InstIt;
     auto *InstPtr = &Inst;
@@ -552,18 +545,6 @@ static bool DeadVariableElimination(Function* F) {
   bool Changed = false;
   auto [In, Out] = DataflowAnalysis<LivenessState, false>(F);
 
-#if DEBUG_OPTIMIZE
-  for(auto *BB : (*F)) {
-    DEBUG("BB %d: \n", BB->Index());
-    for(auto Reg : In[BB].LiveRegs_) {
-      DEBUG("\tIn: %d\n", Reg);
-    }
-    for(auto Reg : Out[BB].LiveRegs_) {
-      DEBUG("\tOut: %d\n", Reg);
-    }
-  }
-#endif 
-
   for(auto *BB : (*F)) {
     Changed |= DeadVariableEliminationBlock(BB, In[BB], Out[BB]);
   }
@@ -584,35 +565,11 @@ void OptimizeIR(Function* F) {
   bool Changed;
   do {
     Changed = false;
-#if DEBUG_OPTIMIZE
-    std::cout << "Before optimization " << Changed << "\n";
-    F->Print();
-#endif
     Changed |= ConstantPropagate(F);
-#if DEBUG_OPTIMIZE
-    std::cout << "After ConstantPropagate " << Changed << "\n";
-    F->Print();
-#endif
     Changed |= CopyPropagate(F);
-#if DEBUG_OPTIMIZE
-    std::cout << "After CopyPropagate " << Changed << "\n";
-    F->Print();
-#endif 
     Changed |= LocalCSE(F);
-#if DEBUG_OPTIMIZE
-    std::cout << "After LocalCSE " << Changed << "\n";
-    F->Print();
-#endif 
     Changed |= GlobalCSE(F);
-#if DEBUG_OPTIMIZE
-    std::cout << "After GlobalCSE " << Changed << "\n";
-    F->Print();
-#endif
     Changed |= DeadCodeElimination(F);
-#if DEBUG_OPTIMIZE
-    std::cout << "After DeadCodeElimination " << Changed << "\n";
-    F->Print();
-#endif
   } while(Changed);
   return;
 }

@@ -4,8 +4,6 @@
 #include <Codegen/Codegen.h>
 #include <IR/Analysis.h>
 
-#define DEBUG_REGALLOC 1
-
 namespace klang {
 
 struct MRegLivenessState {

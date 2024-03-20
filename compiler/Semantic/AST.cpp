@@ -61,6 +61,7 @@ static const char* GetTypeName(ASTType Type) {
     case TY_VOID: return "void";
     default: assert(false && "Invalid type");
   }
+  return nullptr;
 }
 
 void ASTFunction::Print() const {

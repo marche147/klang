@@ -539,35 +539,13 @@ void MachineFuncBuilder::Generate() {
     }
   }
 
-#if DEBUG_CODEGEN
-  std::cerr << "Before instruction scheduling:\n";
-  std::stringstream SS;
-  MFunction_->Emit(SS);
-  std::cerr << SS.str() << std::endl;
-#endif 
-
   ListScheduler Scheduler(MFunction_);
   Scheduler.Schedule();
-
-#if DEBUG_CODEGEN
-  std::cerr << "Before register allocation:\n";
-  SS.str("");
-  MFunction_->Emit(SS);
-  std::cerr << SS.str() << std::endl;
-#endif 
 
   LinearScanRegAlloc RA(MFunction_);
   if(!RA.Allocate()) {
     throw std::runtime_error("Failed to allocate registers");
   }
-
-#if DEBUG_CODEGEN
-  std::cerr << "After register allocation:\n";
-  SS.str("");
-  MFunction_->Emit(SS);
-  std::cerr << SS.str() << std::endl;
-#endif
-
   return;
 }
 

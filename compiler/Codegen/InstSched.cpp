@@ -4,8 +4,6 @@
 #include <map>
 #include <queue>
 
-// https://people.cs.umass.edu/~moss/610-slides/30.pdf
-
 namespace klang {
 
 static void UpdateDefs(
@@ -271,10 +269,6 @@ void PrecedenceGraph::Build() {
     Nodes_.push_back(Node);
   }
 
-#if DEBUG_INSTSCHED
-  DEBUG("Block: %s, Size: %lu\n", Block_->Name(), Nodes_.size());
-#endif 
-
   // handle barrier nodes
   for(auto *BarrierNode : BarrierNodes) {
     bool BeforeBarrier = true;
@@ -296,11 +290,6 @@ std::vector<PrecedenceGraphNode*> PrecedenceGraph::Leaves() const {
   std::vector<PrecedenceGraphNode*> Leafs;
   for(auto *Node : Nodes_) {
     if(Node->Predecessors().empty()) {
-#if DEBUG_INSTSCHED
-      std::stringstream SS("");
-      Node->Instruction()->Emit(SS);
-      DEBUG("Leaf: %s\n", SS.str().c_str());
-#endif 
       Leafs.push_back(Node);
     }
   }
@@ -346,20 +335,9 @@ void ListScheduler::ScheduleBlock(MachineBasicBlock* Block) {
         // op completed
         Scheduled.push_back(Node);
 
-#if DEBUG_INSTSCHED
-        std::stringstream SS("");
-        Node->Instruction()->Emit(SS);
-        DEBUG("Scheduled: %s\n", SS.str().c_str());
-#endif
-        
         // add ready nodes
         for(auto *Succ : Node->Successors()) {
           if(Succ->IsReady(Scheduled)) {
-#if DEBUG_INSTSCHED
-            std::stringstream SS("");
-            Succ->Instruction()->Emit(SS);
-            DEBUG("Adding ready: %s\n", SS.str().c_str());
-#endif 
             ReadyNodes.push(Succ);
           }
         }

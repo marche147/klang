@@ -6,8 +6,6 @@
 #include <map>
 #include <optional>
 
-#define DEBUG_OPTIMIZE 0
-
 namespace klang {
 
 #pragma region ConstPropagate

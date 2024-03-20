@@ -2,9 +2,6 @@
 #include <IR/Analysis.h>
 #include <Logging.h>
 
-// https://www.cs.rice.edu/~kvp1/spring2008/lecture7.pdf
-// XXX: Refine handling for intervals using dataflow analysis 
-
 namespace klang {
 
 void MRegLivenessState::Meet(const MRegLivenessState& Other) {
@@ -107,21 +104,7 @@ std::vector<Interval*> LinearScanRegAlloc::ComputeInterval(const std::vector<Mac
   LiveIn_ = In;
   LiveOut_ = Out;
 
-#if DEBUG_REGALLOC
   for(auto *BB : Blocks) {
-    auto InState = LiveIn_[BB];
-    auto OutState = LiveOut_[BB];
-    DEBUG("In state for block %s: ", BB->Name());
-    InState.Print();
-    DEBUG("Out state for block %s: ", BB->Name());
-    OutState.Print();
-  }
-#endif 
-
-  for(auto *BB : Blocks) {
-#if DEBUG_REGALLOC
-    DEBUG("Computing intervals for block %s\n", BB->Name());
-#endif 
     for(auto InstIt = BB->begin(); InstIt != BB->end(); InstIt++) {
       auto *Inst = *InstIt;
       ComputeIntervalSingle(Blocks, Inst, Intervals);
@@ -208,35 +191,6 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
         Current++;
       }
 
-#if DEBUG_REGALLOC
-      DEBUG("Linear scan register interval for virt reg %d: [%d, %d]\n", Op.GetVirtualRegister(), Start, End);
-#endif 
-
-#if 0
-      // XXX: nested loops are not supported
-      auto *StartInst = OrderToInst_[Start];
-      if(InstructionInLoop(StartInst)) {
-        auto [Entry, Exit] = FindLoopEntryExitBlock(StartInst->Parent());
-#if DEBUG_REGALLOC
-        DEBUG("Found loop entry and exit block for instruction %s: %s, %s\n", StartInst->Parent()->Name(), Entry->Name(), Exit->Name());
-#endif 
-        int EStart = InstToOrder_[*Entry->begin()];
-        assert(EStart <= Start && "loop entry should be before the start of the interval");
-        Start = EStart;
-      }
-
-      auto *EndInst = OrderToInst_[End];
-      if(InstructionInLoop(EndInst)) {
-        auto [Entry, Exit] = FindLoopEntryExitBlock(EndInst->Parent());
-#if DEBUG_REGALLOC
-        DEBUG("Found loop entry and exit block for instruction %s: %s, %s\n", EndInst->Parent()->Name(), Entry->Name(), Exit->Name());
-#endif 
-        int EEnd = InstToOrder_[*Exit->rbegin()];
-        assert(EEnd >= End && "loop exit should be after the end of the interval");
-        End = EEnd;
-      }
-#endif 
-
       // XXX: determine whether the interval needs
       // an extension
       for(auto *BB : Blocks) {
@@ -244,7 +198,6 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
         if(OutState.Contains(Op.GetVirtualRegister())) {
           int BBEnd = InstToOrder_[*BB->rbegin()];
           if(BBEnd > End) {
-            DEBUG("Extending interval end for virtual register %d: [%d, %d] -> [%d, %d]\n", Op.GetVirtualRegister(), Start, End, Start, BBEnd);
             End = BBEnd;
           }
         }
@@ -253,15 +206,11 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
         if(InState.Contains(Op.GetVirtualRegister())) {
           int BBStart = InstToOrder_[*BB->begin()];
           if(BBStart < Start) {
-            DEBUG("Extending interval start for virtual register %d: [%d, %d] -> [%d, %d]\n", Op.GetVirtualRegister(), Start, End, BBStart, End);
             Start = BBStart;
           }
         }
       }
 
-#if DEBUG_REGALLOC
-      DEBUG("Found interval for virtual register %d: [%d, %d]\n", Op.GetVirtualRegister(), Start, End);
-#endif
       auto *NewInterval = new Interval(Op.GetVirtualRegister(), Start, End);
       VirtRegToInterval_[Op.GetVirtualRegister()] = NewInterval;
       Intervals.push_back(NewInterval);
@@ -300,9 +249,6 @@ void LinearScanRegAlloc::FixupCallInst(MachineInstruction* Inst, std::vector<Int
     }
 
     if(Order >= Start && Order <= RealEnd) {
-#if DEBUG_REGALLOC
-      DEBUG("Found active interval (%d)[%d, %d(%d)] at call site (%d)\n", I->VirtRegId(), Start, I->End(), RealEnd, Order);
-#endif 
       ActiveAtCall.insert(I);
     }
   }
@@ -330,11 +276,6 @@ bool LinearScanRegAlloc::Allocate() {
   // Sort blocks by reverse post order
   auto Blocks = SortBlocks();
 
-#if DEBUG_REGALLOC
-  std::stringstream SS;
-  DEBUG("Sorted %d blocks\n", Blocks.size());
-#endif 
-
   // Label each instruction with increasing order
   int Order = 0;
   for(auto *BB : Blocks) {
@@ -350,10 +291,6 @@ bool LinearScanRegAlloc::Allocate() {
 
   // Compute live intervals
   auto Intervals = ComputeInterval(Blocks);
-
-#if DEBUG_REGALLOC
-  DEBUG("Found %d live intervals\n", Intervals.size());
-#endif 
 
   // Linear scan
   std::vector<Interval*> ByStart(Intervals.begin(), Intervals.end());
@@ -420,39 +357,16 @@ bool LinearScanRegAlloc::Allocate() {
       auto [Spilled, _] = SpillAtInterval(I);
       auto Slot = AllocateSpillSlot(Spilled);
       Spilled->SpillAt(I->Start(), Slot);
-#if DEBUG_REGALLOC
-      DEBUG("Spilling interval (%d)[%d, %d] to slot %d (at %d)\n", Spilled->VirtRegId(), Spilled->Start(), Spilled->End(), Slot, Spilled->SpillAt());
-      DEBUG("Current interval (%d)[%d, %d]\n", I->VirtRegId(), I->Start(), I->End());
-      if(I == Spilled) {
-        DEBUG("Spilled interval is the same as the current interval\n");
-      } else {
-        DEBUG("Spilled interval is different from the current interval\n");
-      }
-#endif 
     } else {
       AllocateFreeRegister(I);
       I->SetReg(ActiveToRegister[I]);
       AddActive(I);
-#if DEBUG_REGALLOC
-      DEBUG("Allocating register %s to interval (%d)[%d, %d]\n", GetRegisterName(I->Reg()), I->VirtRegId(), I->Start(), I->End());
-#endif
     }
   }
 
-#if DEBUG_REGALLOC
-  SS.str("");
-  Func_->Emit(SS);
-  DEBUG("Original:\n%s\n", SS.str().c_str());
-#endif 
-
-  // Rewrite code to use physical registers
-  // XXX: This is not how you handle spills :<
   for(auto *I : Intervals) {
     if(!I->IsSpilled()) {
       // Simply replace virtual register with physical register
-#if DEBUG_REGALLOC
-      DEBUG("Replacing virtual register %d [%d, %d] with physical register %s\n", I->VirtRegId(), I->Start(), I->End(), GetRegisterName(I->Reg()));
-#endif 
       assert(I->Reg() != None && "Interval should have a register assigned");
       for(int i = I->Start(); i <= I->End(); i++) {
         ReplaceVirtualRegister(OrderToInst_[i], I->VirtRegId(), I->Reg());
@@ -460,10 +374,6 @@ bool LinearScanRegAlloc::Allocate() {
     } else {
       // XXX: Use allocated register before spilling.
       auto SpillSlot = MachineOperand::CreateMemory(RBP, -(I->SpillSlot() + 1) * MachineOperand::WordSize());
-
-#ifdef DEBUG_REGALLOC
-      DEBUG("Spilling interval (%d)[%d, %d] to slot %d at %d\n", I->VirtRegId(), I->Start(), I->End(), I->SpillSlot(), I->SpillAt());
-#endif 
 
       for(int i = I->Start(); i < I->SpillAt(); i++) {
         ReplaceVirtualRegister(OrderToInst_[i], I->VirtRegId(), I->Reg());
@@ -483,20 +393,8 @@ bool LinearScanRegAlloc::Allocate() {
     }
   }
 
-#if DEBUG_REGALLOC
-  SS.str("");
-  Func_->Emit(SS);
-  DEBUG("Rewritten:\n%s\n", SS.str().c_str());
-#endif 
-
   // needs fixup for instructions with 2 or more memory operands
   FixupInstruction(Func_);
-
-#if DEBUG_REGALLOC
-  SS.str("");
-  Func_->Emit(SS);
-  DEBUG("Rewritten after fixup:\n%s\n", SS.str().c_str());
-#endif 
 
   // Fixup call instructions
   for(auto KV : InstToOrder_) {

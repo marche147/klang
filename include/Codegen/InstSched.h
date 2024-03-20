@@ -3,8 +3,6 @@
 
 #include <Codegen/Codegen.h>
 
-#define DEBUG_INSTSCHED 0
-
 namespace klang {
 
 class PrecedenceGraphNode {

@@ -6,8 +6,6 @@
 
 #include <sstream>
 
-#define DEBUG_CODEGEN 1
-
 namespace klang {
 
 class MachineFunction;

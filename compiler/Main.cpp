@@ -12,8 +12,6 @@
 
 using namespace klang;
 
-#define DEBUG 1
-
 namespace klang {
 
 ASTModule* ParseSource(const char* FileName) {
@@ -55,12 +53,6 @@ int Compile(const char* FileName, const char* OutputName = "out.S") {
   for(auto *F : (*M)) {
     OptimizeIR(F);
   }
-
-#if DEBUG
-  for(auto *F : (*M)) {
-    F->Print();
-  }
-#endif 
 
   ModuleCodegen Codegen(M, &MCtx);
   if(!Codegen.Generate()) {
