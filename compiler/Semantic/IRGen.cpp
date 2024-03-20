@@ -226,14 +226,22 @@ static bool VerifyStatement(ASTStatement* S) {
     }
     case ASTStatement::ST_RETURN: {
       auto *RS = static_cast<ASTStatementReturn*>(S);
-      auto ET = VerifyExpression(RS->GetReturnValue());
-      if(ET.has_value()) {
-        if(ET != RS->GetParent()->GetReturnType()) {
-          ERROR("Type mismatch in return statement at line %d\n", S->GetLineNo());
+
+      if(RS->GetReturnValue() != nullptr) {
+        auto ET = VerifyExpression(RS->GetReturnValue());
+        if(ET.has_value()) {
+          if(ET != RS->GetParent()->GetReturnType()) {
+            ERROR("Type mismatch in return statement at line %d\n", S->GetLineNo());
+            return false;
+          }
+        } else if(!ET.has_value()) {
           return false;
         }
-      } else if(!ET.has_value()) {
-        return false;
+      } else {
+        if(RS->GetParent()->GetReturnType() != TY_VOID) {
+          ERROR("Return statement must have a value at line %d\n", S->GetLineNo());
+          return false;
+        }
       }
       break;
     }
