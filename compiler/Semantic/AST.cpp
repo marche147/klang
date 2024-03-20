@@ -204,11 +204,15 @@ void ASTStatementWhile::Print(IndentPrinter& OS) const {
 
 ASTStatementReturn::ASTStatementReturn(ASTExpression* ReturnValue, int LineNo)
     : ASTStatement(ST_RETURN, LineNo), ReturnValue_(ReturnValue) {
-  ReturnValue_->SetParent(this);
+  if(ReturnValue_) {
+    ReturnValue_->SetParent(this);
+  }
 }
 
 ASTStatementReturn::~ASTStatementReturn() {
-  delete ReturnValue_;
+  if(ReturnValue_) {
+    delete ReturnValue_;
+  }
 }
 
 void ASTStatementReturn::Print(IndentPrinter& OS) const {
