@@ -15,7 +15,7 @@ void do_printi(int64_t i) {
 }
 
 void do_prints(const char* s) {
-    printf("%s\n", s);
+    puts(s); 
 }
 
 int64_t do_inputi(void) {
@@ -42,11 +42,11 @@ int64_t do_random(void) {
 }
 
 char* do_inputs() {
-    char buffer[1024] = {0};
-    if(!fgets(buffer, sizeof(buffer), stdin)) {
+    char* buffer = (char*)malloc(256);
+    if(!fgets(buffer, 256, stdin)) {
         fatal("Failed to read input");
     }
-    return strdup(buffer);
+    return buffer;
 }
 
 struct array_t {

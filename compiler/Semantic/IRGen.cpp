@@ -406,7 +406,6 @@ Operand IRGen::GenerateExpression(FuncGenCtx& Ctx, ASTExpression* E, bool CallVo
       auto NewR = __ NewReg();
 
       switch(BE->GetOperator()) {
-        // TODO: Support all arithmetics
         case ASTExpressionBinary::OP_ADD: {
           __ Add(NewR, LHS, RHS);
           break;

@@ -16,7 +16,6 @@ class ASTFunction;
 class ASTStatement;
 class ASTExpression;
 
-// change the following enum to int to avoid the warning
 #define TY_INTEGER 0
 #define TY_ARRAY 1
 #define TY_STRING 2

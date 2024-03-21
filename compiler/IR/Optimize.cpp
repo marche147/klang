@@ -160,8 +160,6 @@ bool CopyPropagate(Function* F) {
 #pragma endregion
 
 #pragma region CommonSubexpressionElimination
-// TODO: Test optimization further
-
 std::optional<CSEValue> CSEValue::FromInstruction(const Instruction& Inst) {
   if(Inst.Type() == Instruction::Binary) {
     auto &BinInst = dynamic_cast<const BinaryInst&>(Inst);

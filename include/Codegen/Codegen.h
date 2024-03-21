@@ -170,10 +170,8 @@ private:
 enum MachineRegister : int {
   None,   // For memory operands
 
-  // retval & temp
   RAX,
 
-  // allocatables 
   RCX,
   R8,
   R9,
@@ -183,7 +181,6 @@ enum MachineRegister : int {
   RSI,
   RDI,
 
-  // callee-saved
   RBX,
   RBP,
   RSP,

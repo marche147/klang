@@ -178,7 +178,6 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
   for(size_t i = 0; i < Inst->Size(); i++) {
     auto Op = Inst->GetOperand(i);
     if(Op.IsVirtualRegister() && VirtRegToInterval_.count(Op.GetVirtualRegister()) == 0) {
-      // Search for the last use of the virtual register
       int Current = Start;
       while(OrderToInst_.count(Current) > 0) {
         auto *CurrentInst = OrderToInst_[Current];
@@ -191,8 +190,6 @@ void LinearScanRegAlloc::ComputeIntervalSingle(const std::vector<MachineBasicBlo
         Current++;
       }
 
-      // XXX: determine whether the interval needs
-      // an extension
       for(auto *BB : Blocks) {
         auto OutState = LiveOut_[BB];
         if(OutState.Contains(Op.GetVirtualRegister())) {
@@ -239,7 +236,6 @@ static void ReplaceVirtualRegister(MachineInstruction* Inst, size_t VirtRegId, M
 void LinearScanRegAlloc::FixupCallInst(MachineInstruction* Inst, std::vector<Interval*>& Intervals) {
   int Order = InstToOrder_[Inst];
 
-  // find active registers used at the call site
   std::set<Interval*> ActiveAtCall;
   for(auto *I : Intervals) {
     int Start = I->Start();
@@ -253,7 +249,6 @@ void LinearScanRegAlloc::FixupCallInst(MachineInstruction* Inst, std::vector<Int
     }
   }
 
-  // need to save active registers
   for(auto *I : ActiveAtCall) {
     if(I->Reg() != None) {
       int Spill = AllocateSpillSlot(I);
@@ -270,13 +265,9 @@ void LinearScanRegAlloc::FixupCallInst(MachineInstruction* Inst, std::vector<Int
   }
 }
 
-// XXX: Currently the problem is that we cannot properly handle loops.
-//
 bool LinearScanRegAlloc::Allocate() {
-  // Sort blocks by reverse post order
   auto Blocks = SortBlocks();
 
-  // Label each instruction with increasing order
   int Order = 0;
   for(auto *BB : Blocks) {
     for(auto InstIt = BB->begin(); InstIt != BB->end(); ++InstIt) {
@@ -289,10 +280,8 @@ bool LinearScanRegAlloc::Allocate() {
   DumpOrderedInstructions();
 #endif 
 
-  // Compute live intervals
   auto Intervals = ComputeInterval(Blocks);
 
-  // Linear scan
   std::vector<Interval*> ByStart(Intervals.begin(), Intervals.end());
   std::sort(ByStart.begin(), ByStart.end(), [](Interval* A, Interval* B) {
     return A->Start() < B->Start();
@@ -366,37 +355,30 @@ bool LinearScanRegAlloc::Allocate() {
 
   for(auto *I : Intervals) {
     if(!I->IsSpilled()) {
-      // Simply replace virtual register with physical register
       assert(I->Reg() != None && "Interval should have a register assigned");
       for(int i = I->Start(); i <= I->End(); i++) {
         ReplaceVirtualRegister(OrderToInst_[i], I->VirtRegId(), I->Reg());
       }
     } else {
-      // XXX: Use allocated register before spilling.
       auto SpillSlot = MachineOperand::CreateMemory(RBP, -(I->SpillSlot() + 1) * MachineOperand::WordSize());
 
       for(int i = I->Start(); i < I->SpillAt(); i++) {
         ReplaceVirtualRegister(OrderToInst_[i], I->VirtRegId(), I->Reg());
       }
 
-      // Spill
       if(I->Reg() != None) {
-        // VirtReg was in physical register before spilling
         auto *SpillAtInst = OrderToInst_[I->SpillAt()];
         SpillAtInst->Parent()->InsertBefore(new MovMachineInst(MachineOperand::CreateRegister(I->Reg()), SpillSlot), SpillAtInst);
       }
 
-      // Use memory for the rest of the interval
       for(int i = I->SpillAt(); i <= I->End(); i++) {
         ReplaceVirtualRegister(OrderToInst_[i], I->VirtRegId(), SpillSlot);
       }
     }
   }
 
-  // needs fixup for instructions with 2 or more memory operands
   FixupInstruction(Func_);
 
-  // Fixup call instructions
   for(auto KV : InstToOrder_) {
     auto *Inst = KV.first;
     if(Inst->GetOpcode() == MachineInstruction::Opcode::Call) {
@@ -404,7 +386,6 @@ bool LinearScanRegAlloc::Allocate() {
     }
   }
 
-  // Emit prologue and epilogue
   EmitPrologue();
   EmitEpilogue();
   return true;

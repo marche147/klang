@@ -651,7 +651,6 @@ void MachineFuncBuilder::HandleLogicalBinaryInst(BinaryInst& Inst) {
 }
 
 void MachineFuncBuilder::HandleBinaryInst(BinaryInst& Inst) {
-  // TODO:
   auto Op = Inst.GetOperation();
   auto Dst = Inst.GetOut(0);
   auto Src1 = Inst.GetIn(0);
@@ -743,7 +742,6 @@ void MachineFuncBuilder::HandleBinaryInst(BinaryInst& Inst) {
 void MachineFuncBuilder::GenerateInstruction(Instruction& Inst) {
   auto Type = Inst.Type();
   switch(Type) {
-    // TODO: 
     case Instruction::Nop:
       break;
     case Instruction::Assign: {

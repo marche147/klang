@@ -3,7 +3,7 @@
 
 #if ! defined(yyFlexLexerOnce)
 #undef yyFlexLexer
-#define yyFlexLexer klang_FlexLexer // the trick with prefix; no namespace here :(
+#define yyFlexLexer klang_FlexLexer
 #include <FlexLexer.h>
 #endif
 
