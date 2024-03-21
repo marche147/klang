@@ -1,5 +1,4 @@
 FROM ubuntu:focal
-MAINTAINER i@shiki7.me 
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
