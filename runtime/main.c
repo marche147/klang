@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <unistd.h>
+#include <sys/resource.h>
 
 extern int64_t K_main(void);
 

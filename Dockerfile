@@ -17,6 +17,9 @@ RUN mkdir /home/ctf/ \
   && useradd -g ctf -u 1001 -d /home/ctf/ ctf \
   && chown ctf:ctf /home/ctf/
 
+ADD flag /flag
+RUN chown root:root /flag && chmod 644 /flag
+
 RUN mkdir /workdir && chown root:root /workdir && chmod 755 /workdir
 
 RUN mkdir /challenge/

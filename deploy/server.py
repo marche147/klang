@@ -6,7 +6,7 @@ from api import check_teamtoken
 randstr = lambda x: ''.join([random.choice(string.ascii_letters) for _ in range(x)])
 
 UID, GID = 1001, 1001
-POW_DIFFICULTY = 26
+POW_DIFFICULTY = 10
 WORKDIR = "/workdir/"
 RUNTIME_DIR = "/challenge/runtime/"
 RUNTIME_SRC = list(map(lambda x: os.path.join(RUNTIME_DIR, x), ["api.c", "main.c", "wrapper.S"]))
@@ -18,14 +18,24 @@ def writeline(l):
   sys.stdout.flush()
   return
 
+def check_token():
+  writeline("Give me your team token.")
+  token = input()
+  return check_teamtoken(token)
+
 def proof_of_work():
   chal = randstr(8)
   writeline(f"Run the pow script with: ./pow_solver.py {chal} {POW_DIFFICULTY} and give me the result.")
-  solution = int(input())
+  
+  solution = input()
+  if not solution.isdigit():
+    return False
+  solution = int(solution)
+
   work = chal.encode() + struct.pack("<Q", solution)
   bits = '{0:0256b}'.format(int(hashlib.sha256(work).hexdigest(), 16))
   if not bits.endswith('0' * POW_DIFFICULTY):
-    return True
+    return False
   return True
 
 def compile(code):
@@ -56,11 +66,14 @@ def run_binary(exe_path):
   os.setgid(GID)
   os.setuid(UID)
 
-  commands = ["prlimit", "--as=67108864", "--cpu=30", "--", exe_path]
+  commands = ["prlimit", "--as=67108864", "--cpu=30", "--nproc=5", "--", exe_path]
   os.execvp("prlimit", commands)
   
-
 def main():
+  if not check_token():
+    print("Invalid token.")
+    return 1
+
   signal.alarm(600)
   if not proof_of_work():
     print("Invalid proof of work.")
