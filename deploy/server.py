@@ -6,7 +6,7 @@ from api import check_teamtoken
 randstr = lambda x: ''.join([random.choice(string.ascii_letters) for _ in range(x)])
 
 UID, GID = 1001, 1001
-POW_DIFFICULTY = 10
+POW_DIFFICULTY = 26
 WORKDIR = "/workdir/"
 RUNTIME_DIR = "/challenge/runtime/"
 RUNTIME_SRC = list(map(lambda x: os.path.join(RUNTIME_DIR, x), ["api.c", "main.c", "wrapper.S"]))
