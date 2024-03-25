@@ -491,6 +491,11 @@ static bool DeadVariableEliminationBlock(BasicBlock* BB, const LivenessState& St
 
   // recursive function to add all needed defs and their uses
   std::function<void(Instruction*)> AddAllToNeeded = [&](Instruction* Inst) {
+#if DEBUG_OPTIMIZE
+    std::cout << "Adding to needed: ";
+    Inst->Print();
+    std::cout << "\n";
+#endif 
     Needed.insert(Inst);
     for(auto *NeededDefs : UsesToDefs[Inst]) {
       AddAllToNeeded(NeededDefs);
@@ -529,6 +534,9 @@ static bool DeadVariableEliminationBlock(BasicBlock* BB, const LivenessState& St
       for(size_t i = 0; i < Inst.Ins(); i++) {
         auto Op = Inst.GetIn(i);
         if(Op.IsRegister()) {
+#if DEBUG_OPTIMIZE
+          DEBUG("Adding %d to needed\n", Op.RegId());
+#endif 
           AddAllToNeeded(LastDefs[Op.RegId()]);
         }
       }
@@ -572,6 +580,10 @@ static bool DeadVariableElimination(Function* F) {
 
 bool DeadCodeElimination(Function* F) {
   bool Changed = false;
+
+#if DEBUG_OPTIMIZE
+  DEBUG("DeadCodeElimination: %s\n", F->Name().c_str());
+#endif
   
   Changed |= DeadVariableElimination(F);
   Changed |= RemoveDummyInstruction(F);
